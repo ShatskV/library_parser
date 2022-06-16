@@ -48,18 +48,21 @@ def parse_book_html(book_html):
     page_soup = BeautifulSoup(book_html, 'lxml')
     name_and_author = page_soup.find('div', id='content').find('h1').text
     book_href = page_soup.find('a', {'href': re.compile('/txt.php*')})
-    book_image_route = page_soup.find('div', class_='bookimage').find('img').get('src')
-    print(book_image_route)
+    image_route = page_soup.find('div', class_='bookimage').find('img').get('src')
+    comments = []
+    comments_class_texts = page_soup.find_all('div', 'texts')
+    if comments_class_texts:
+        comments = [comment.find('span', class_ ='black').text for comment in comments_class_texts]
     if book_href:
-        book_link = book_href.get('href')
+        book_route = book_href.get('href')
     else:
         print('No link for this book')
-        book_link = None
+        book_route = None
     
     name, author = name_and_author.split('::')
     author = author.strip()
     name = name.strip()
-    return name, author, book_link, book_image_route
+    return name, author, book_route, image_route, comments
 
 
 def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filename_template='{}.jpg', 
@@ -88,7 +91,7 @@ def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filenam
 
                 download_txt(book_link, book_filename, books_folder)
                 download_image(image_link, image_filename, images_folder)
-                
+
                 id_ += 1
 
 
