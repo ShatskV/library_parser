@@ -25,6 +25,19 @@ def download_txt(url, filename, folder='books/'):
     return filepath
 
 
+def download_image(url, filename, folder='images/'):
+    try:
+        response = requests.get(url)
+    except requests.HTTPError as e:
+        print(f'HTTP error: {e}')
+        return None
+    Path(folder).mkdir(parents=True, exist_ok=True)
+    filename = sanitize_filename(filename)
+    filepath = os.path.join(folder, filename)
+    with open(filepath, 'wb') as file:
+        file.write(response.content)
+    return filepath
+
 
 def check_for_redirect(response):
     if response.status_code == 302:
@@ -35,19 +48,22 @@ def parse_book_html(book_html):
     page_soup = BeautifulSoup(book_html, 'lxml')
     name_and_author = page_soup.find('div', id='content').find('h1').text
     book_href = page_soup.find('a', {'href': re.compile('/txt.php*')})
+    book_image_route = page_soup.find('div', class_='bookimage').find('img').get('src')
+    print(book_image_route)
     if book_href:
         book_link = book_href.get('href')
     else:
         print('No link for this book')
         book_link = None
+    
     name, author = name_and_author.split('::')
     author = author.strip()
     name = name.strip()
-    return name, author, book_link
+    return name, author, book_link, book_image_route
 
 
-def fetch_books(url_template, filename_template, folder='books/', start_id=1, end_id=10):
-
+def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filename_template='{}.jpg', 
+                books_folder='books/', images_folder='images/', start_id=1, end_id=10):
     id_ = 1
     for i in range(start_id, end_id + 1):
         url = url_template.format(i)
@@ -62,11 +78,17 @@ def fetch_books(url_template, filename_template, folder='books/', start_id=1, en
             print(f'No book found: {url}')
         else:
             page_html = response.text
-            book_name, _, book_relative_link = parse_book_html(page_html)
-            if book_relative_link:
-                book_link = urljoin(url, book_relative_link)
-                filename = filename_template.format(id_, book_name)
-                download_txt(book_link, filename, folder)
+            book_name, _, book_route, image_route = parse_book_html(page_html)
+            if book_route:
+                book_link = urljoin(url, book_route)
+                image_link = urljoin(url, image_route)
+
+                book_filename = book_filename_template.format(id_, book_name)
+                image_filename = image_filename_template.format(id_)
+
+                download_txt(book_link, book_filename, books_folder)
+                download_image(image_link, image_filename, images_folder)
+                
                 id_ += 1
 
 
@@ -80,7 +102,7 @@ def get_page_html(url):
 
 
 def main():
-    fetch_books(url_book_template, filename_template)
+    fetch_books(url_book_template)
 
 if __name__ == '__main__':
     main()
