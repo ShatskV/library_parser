@@ -1,11 +1,12 @@
+import argparse
 import os
+import re
 from pathlib import Path
 from urllib.parse import urljoin
-import re
+
 import requests
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
-
 
 url_book_template = 'https://tululu.org/b{}/'
 filename_template ='{}. {}.txt'
@@ -42,6 +43,18 @@ def download_image(url, filename, folder='images/'):
 def check_for_redirect(response):
     if response.status_code == 302:
         raise requests.HTTPError
+
+
+def parse_args_from_terminal():
+    parser = argparse.ArgumentParser(
+    description='Задайте диапазон скачивания книг:'
+                )
+    parser.add_argument('-s', '--start_id', help="Начальный ID книги", type=int, default=1)
+    parser.add_argument('-e', '--end_id', help="Конечный ID книги", type=int, default=10)
+    args = parser.parse_args()
+    start_id = args.start_id
+    end_id = args.end_id
+    return start_id, end_id
 
 
 def parse_book_page(book_html):
@@ -92,12 +105,11 @@ def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filenam
         else:
             page_html = response.text
             book_parsed = parse_book_page(page_html)
-            book_parsed['comments'] = None
             if book_parsed.get('book_route'):
                 book_link = urljoin(url, book_parsed['book_route'])
                 image_link = urljoin(url, book_parsed['image_route'])
 
-                book_filename = book_filename_template.format(id_, book_parsed['book_name'])
+                book_filename = book_filename_template.format(id_, book_parsed['name'])
                 image_filename = image_filename_template.format(id_)
 
                 download_txt(book_link, book_filename, books_folder)
@@ -106,17 +118,10 @@ def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filenam
                 id_ += 1
 
 
-def get_page_html(url):
-    try:
-        response = requests.get(url, allow_redirects=False)
-    except requests.HTTPError as e:
-        print(f'HTTP error: {e}')
-        return None
-    return response.text
-
-
 def main():
-    fetch_books(url_book_template)
+    start_id, end_id = parse_args_from_terminal()
+    fetch_books(url_book_template, start_id=start_id, end_id=end_id)
+
 
 if __name__ == '__main__':
     main()
