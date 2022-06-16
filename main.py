@@ -44,7 +44,7 @@ def check_for_redirect(response):
         raise requests.HTTPError
 
 
-def parse_book_html(book_html):
+def parse_book_page(book_html):
     page_soup = BeautifulSoup(book_html, 'lxml')
     name_and_author = page_soup.find('div', id='content').find('h1').text
 
@@ -91,7 +91,7 @@ def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filenam
             print(f'No book found: {url}')
         else:
             page_html = response.text
-            book_parsed = parse_book_html(page_html)
+            book_parsed = parse_book_page(page_html)
             book_parsed['comments'] = None
             if book_parsed.get('book_route'):
                 book_link = urljoin(url, book_parsed['book_route'])
