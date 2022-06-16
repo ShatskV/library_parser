@@ -47,8 +47,13 @@ def check_for_redirect(response):
 def parse_book_html(book_html):
     page_soup = BeautifulSoup(book_html, 'lxml')
     name_and_author = page_soup.find('div', id='content').find('h1').text
+
     book_href = page_soup.find('a', {'href': re.compile('/txt.php*')})
     image_route = page_soup.find('div', class_='bookimage').find('img').get('src')
+
+    genres_hrefs = page_soup.find('span', class_='d_book').find_all('a', href=True)
+    genres = [genre_href.text for genre_href in genres_hrefs]
+
     comments = []
     comments_class_texts = page_soup.find_all('div', 'texts')
     if comments_class_texts:
@@ -62,7 +67,12 @@ def parse_book_html(book_html):
     name, author = name_and_author.split('::')
     author = author.strip()
     name = name.strip()
-    return name, author, book_route, image_route, comments
+    return {'name': name,
+            'author': author, 
+            'book_route': book_route,
+            'image_route': image_route, 
+            'comments': comments,
+            'genres': genres}
 
 
 def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filename_template='{}.jpg', 
@@ -81,12 +91,13 @@ def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filenam
             print(f'No book found: {url}')
         else:
             page_html = response.text
-            book_name, _, book_route, image_route = parse_book_html(page_html)
-            if book_route:
-                book_link = urljoin(url, book_route)
-                image_link = urljoin(url, image_route)
+            book_parsed = parse_book_html(page_html)
+            book_parsed['comments'] = None
+            if book_parsed.get('book_route'):
+                book_link = urljoin(url, book_parsed['book_route'])
+                image_link = urljoin(url, book_parsed['image_route'])
 
-                book_filename = book_filename_template.format(id_, book_name)
+                book_filename = book_filename_template.format(id_, book_parsed['book_name'])
                 image_filename = image_filename_template.format(id_)
 
                 download_txt(book_link, book_filename, books_folder)
