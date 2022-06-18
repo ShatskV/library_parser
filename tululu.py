@@ -1,6 +1,10 @@
 import argparse
+import logging
 import os
 import re
+import sys
+import time
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -8,16 +12,21 @@ import requests
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
 
-url_book_template = 'https://tululu.org/b{}/'
-filename_template ='{}. {}.txt'
-
+logger = logging.getLogger('main')
+logger.setLevel(logging.ERROR)
+log_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+log_handler = RotatingFileHandler('tululu.log', maxBytes=1024*1024, backupCount=2)
+log_handler.setFormatter(log_formatter)
+logger.addHandler(log_handler)
 
 def download_txt(url, filename, folder='books/'):
     try:
         response = requests.get(url)
-    except requests.HTTPError as e:
-        print(f'HTTP error: {e}')
-        return None
+        response.raise_for_status()
+    except requests.ConnectionError:
+        raise
+    except requests.HTTPError:
+        raise
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
     filepath = os.path.join(folder, filename)
@@ -29,9 +38,11 @@ def download_txt(url, filename, folder='books/'):
 def download_image(url, filename, folder='images/'):
     try:
         response = requests.get(url)
-    except requests.HTTPError as e:
-        print(f'HTTP error: {e}')
-        return None
+        response.raise_for_status()
+    except requests.ConnectionError:
+        raise
+    except requests.HTTPError:
+        raise
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
     filepath = os.path.join(folder, filename)
@@ -42,19 +53,19 @@ def download_image(url, filename, folder='images/'):
 
 def check_for_redirect(response):
     if response.status_code == 302:
-        raise requests.HTTPError
+        raise requests.HTTPError('code: 404, No book fot this url')
 
 
 def parse_args_from_terminal():
     parser = argparse.ArgumentParser(
     description='Задайте диапазон скачивания книг:'
                 )
-    parser.add_argument('-s', '--start_id', help="Начальный ID книги", type=int, default=1)
-    parser.add_argument('-e', '--end_id', help="Конечный ID книги", type=int, default=10)
+    parser.add_argument('-s', '--book_start_id', help="Начальный ID книги", type=int, default=1)
+    parser.add_argument('-e', '--book_end_id', help="Конечный ID книги", type=int, default=10)
     args = parser.parse_args()
-    start_id = args.start_id
-    end_id = args.end_id
-    return start_id, end_id
+    book_start_id = args.book_start_id
+    book_end_id = args.book_end_id
+    return book_start_id, book_end_id
 
 
 def parse_book_page(book_html):
@@ -67,15 +78,10 @@ def parse_book_page(book_html):
     genres_hrefs = page_soup.find('span', class_='d_book').find_all('a', href=True)
     genres = [genre_href.text for genre_href in genres_hrefs]
 
-    comments = []
     comments_class_texts = page_soup.find_all('div', 'texts')
-    if comments_class_texts:
-        comments = [comment.find('span', class_ ='black').text for comment in comments_class_texts]
-    if book_href:
-        book_route = book_href.get('href')
-    else:
-        print('No link for this book')
-        book_route = None
+    comments = [comment.find('span', class_ ='black').text for comment in comments_class_texts]
+    
+    book_route = book_href.get('href') if book_href else None
     
     name, author = name_and_author.split('::')
     author = author.strip()
@@ -88,20 +94,27 @@ def parse_book_page(book_html):
             'genres': genres}
 
 
-def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filename_template='{}.jpg', 
-                books_folder='books/', images_folder='images/', start_id=1, end_id=10):
-    id_ = 1
-    for i in range(start_id, end_id + 1):
-        url = url_template.format(i)
+def fetch_books(book_start_id=1, book_end_id=10):
+    url_book_template = 'https://tululu.org/b{}/'
+    book_filename_template ='{}. {}.txt'
+    books_folder='books/'
+    images_folder='images/'
+    image_filename_template='{}.jpg'
+    book_id_in_local_lib = 1
+
+    for book_id in range(book_start_id, book_end_id + 1):
+        url = url_book_template.format(book_id)
         try:
             response = requests.get(url, allow_redirects=False)
-        except requests.HTTPError as e:
-            print(f'HTTP error: {e}')
-            return
-        try:
+            response.raise_for_status()
             check_for_redirect(response)
-        except requests.HTTPError:
-            print(f'No book found: {url}')
+        except requests.ConnectionError as e:
+            logger.error(f'url: {url} Connection error: {e}')
+            print(f'url: {url}\n Connection error: {e}\n', file=sys.stderr)
+            time.sleep(5)
+        except requests.HTTPError as e:
+             logger.error(f'HTTP error: {e}')
+             print(f'url: {url}\n HTTP error: {e}\n', file=sys.stderr)
         else:
             page_html = response.text
             book_parsed = parse_book_page(page_html)
@@ -109,18 +122,24 @@ def fetch_books(url_template, book_filename_template='{}. {}.txt', image_filenam
                 book_link = urljoin(url, book_parsed['book_route'])
                 image_link = urljoin(url, book_parsed['image_route'])
 
-                book_filename = book_filename_template.format(id_, book_parsed['name'])
-                image_filename = image_filename_template.format(id_)
-
-                download_txt(book_link, book_filename, books_folder)
-                download_image(image_link, image_filename, images_folder)
-
-                id_ += 1
+                book_filename = book_filename_template.format(book_id_in_local_lib, book_parsed['name'])
+                image_filename = image_filename_template.format(book_id_in_local_lib)
+                try:
+                    download_txt(book_link, book_filename, books_folder)
+                    download_image(image_link, image_filename, images_folder)
+                except requests.ConnectionError as e:
+                    logger.error(f'Connection error: {e}')
+                    print(f'Connection error while download book files: {e}\n', file=sys.stderr)
+                    time.sleep(5)
+                except requests.HTTPError:
+                    logger.error(f'HTTP error while download book files: {e}')
+                    print(f'url: {url}\n Connection error: {e}\n', file=sys.stderr)
+                book_id_in_local_lib += 1
 
 
 def main():
-    start_id, end_id = parse_args_from_terminal()
-    fetch_books(url_book_template, start_id=start_id, end_id=end_id)
+    book_start_id, book_end_id = parse_args_from_terminal()
+    fetch_books(book_start_id=book_start_id, book_end_id=book_end_id)
 
 
 if __name__ == '__main__':
