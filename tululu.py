@@ -131,7 +131,7 @@ def fetch_books(book_start_id=1, book_end_id=10):
                     logger.error(f'Connection error: {e}')
                     print(f'Connection error while download book files: {e}\n', file=sys.stderr)
                     time.sleep(5)
-                except requests.HTTPError:
+                except requests.HTTPError as e:
                     logger.error(f'HTTP error while download book files: {e}')
                     print(f'url: {url}\n Connection error: {e}\n', file=sys.stderr)
                 book_id_in_local_lib += 1
