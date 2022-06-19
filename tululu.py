@@ -23,9 +23,7 @@ def download_txt(url, filename, folder='books/'):
     try:
         response = requests.get(url)
         response.raise_for_status()
-    except requests.ConnectionError:
-        raise
-    except requests.HTTPError:
+    except (requests.ConnectionError, requests.HTTPError):
         raise
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
@@ -39,9 +37,7 @@ def download_image(url, filename, folder='images/'):
     try:
         response = requests.get(url)
         response.raise_for_status()
-    except requests.ConnectionError:
-        raise
-    except requests.HTTPError:
+    except (requests.ConnectionError, requests.HTTPError):
         raise
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
