@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
 
+
 logger = logging.getLogger('main')
 logger.setLevel(logging.ERROR)
 log_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
@@ -19,29 +20,28 @@ log_handler = RotatingFileHandler('tululu.log', maxBytes=1024*1024, backupCount=
 log_handler.setFormatter(log_formatter)
 logger.addHandler(log_handler)
 
+
 def download_txt(url, filename, folder='books/'):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except (requests.ConnectionError, requests.HTTPError):
-        raise
+    response = requests.get(url)
+    response.raise_for_status()
+    
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
     filepath = os.path.join(folder, filename)
+
     with open(filepath, 'wb') as file:
         file.write(response.content)
     return filepath
 
 
 def download_image(url, filename, folder='images/'):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except (requests.ConnectionError, requests.HTTPError):
-        raise
+    response = requests.get(url)
+    response.raise_for_status()
+    
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
     filepath = os.path.join(folder, filename)
+
     with open(filepath, 'wb') as file:
         file.write(response.content)
     return filepath
@@ -49,7 +49,7 @@ def download_image(url, filename, folder='images/'):
 
 def check_for_redirect(response):
     if response.status_code == 302:
-        raise requests.HTTPError('code: 404, No book fot this url')
+        raise requests.HTTPError(f'code: 404, No book for this url')
 
 
 def parse_args_from_terminal():
@@ -100,37 +100,41 @@ def fetch_books(book_start_id=1, book_end_id=10):
 
     for book_id in range(book_start_id, book_end_id + 1):
         url = url_book_template.format(book_id)
+       
         try:
             response = requests.get(url, allow_redirects=False)
             response.raise_for_status()
             check_for_redirect(response)
         except requests.ConnectionError as e:
             logger.error(f'url: {url} Connection error: {e}')
-            print(f'url: {url}\n Connection error: {e}\n', file=sys.stderr)
+            time.sleep(5)
+            continue
+        except requests.HTTPError as e:
+            logger.error(f'url: {url} HTTP error: {e}')
+            continue
+
+        page_html = response.text
+        book_parsed = parse_book_page(page_html)
+
+        if not book_parsed.get('book_route'):
+            continue
+
+        book_link = urljoin(url, book_parsed['book_route'])
+        image_link = urljoin(url, book_parsed['image_route'])
+
+        book_filename = book_filename_template.format(book_id_in_local_lib, book_parsed['name'])
+        image_filename = image_filename_template.format(book_id_in_local_lib)
+
+        try:
+            download_txt(book_link, book_filename, books_folder)
+            download_image(image_link, image_filename, images_folder)
+        except requests.ConnectionError as e:
+            logger.error(f'Connection error while download book files: {e}')
             time.sleep(5)
         except requests.HTTPError as e:
-             logger.error(f'HTTP error: {e}')
-             print(f'url: {url}\n HTTP error: {e}\n', file=sys.stderr)
+            logger.error(f'HTTP error while download book files: {e}')
         else:
-            page_html = response.text
-            book_parsed = parse_book_page(page_html)
-            if book_parsed.get('book_route'):
-                book_link = urljoin(url, book_parsed['book_route'])
-                image_link = urljoin(url, book_parsed['image_route'])
-
-                book_filename = book_filename_template.format(book_id_in_local_lib, book_parsed['name'])
-                image_filename = image_filename_template.format(book_id_in_local_lib)
-                try:
-                    download_txt(book_link, book_filename, books_folder)
-                    download_image(image_link, image_filename, images_folder)
-                except requests.ConnectionError as e:
-                    logger.error(f'Connection error: {e}')
-                    print(f'Connection error while download book files: {e}\n', file=sys.stderr)
-                    time.sleep(5)
-                except requests.HTTPError as e:
-                    logger.error(f'HTTP error while download book files: {e}')
-                    print(f'url: {url}\n Connection error: {e}\n', file=sys.stderr)
-                book_id_in_local_lib += 1
+            book_id_in_local_lib += 1
 
 
 def main():
