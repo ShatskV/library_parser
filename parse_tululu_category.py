@@ -9,11 +9,11 @@ import json
 
 def get_book_urls_from_page(main_page_url, page_html):
     page_soup = BeautifulSoup(page_html, 'lxml')
-    book_classes = page_soup.find_all('div', class_='bookimage')
+    selector = ".bookimage a"
     book_urls = []
-    for book_class in book_classes:
-        book_route = book_class.find('a').get('href')
-        book_url = urljoin(main_page_url, book_route)
+    book_blocks = page_soup.select(selector)
+    for block in book_blocks:
+        book_url = urljoin(main_page_url, block.get('href'))
         book_urls.append(book_url)
     return book_urls
 
