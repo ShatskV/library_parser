@@ -11,7 +11,7 @@ from pathvalidate import sanitize_filename
 from books_logger import logger
 
 
-def download_txt(url, filename, folder='books/'):
+def download_txt(url, filename, folder='books'):
     response = requests.get(url)
     response.raise_for_status()
     
@@ -24,7 +24,7 @@ def download_txt(url, filename, folder='books/'):
     return filepath
 
 
-def download_image(url, filename, folder='images/'):
+def download_image(url, filename, folder='images'):
     response = requests.get(url)
     response.raise_for_status()
     
