@@ -1,10 +1,14 @@
-import requests
-from books_logger import logger
-import time
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-from tululu import download_image, parse_book_page, download_txt
+import argparse
 import json
+import time
+from urllib.parse import urljoin
+from itertools import count
+
+import requests
+from bs4 import BeautifulSoup
+
+from books_logger import logger
+from tululu import download_image, download_txt, parse_book_page
 
 
 def get_book_urls_from_page(main_page_url, page_html):
@@ -18,14 +22,28 @@ def get_book_urls_from_page(main_page_url, page_html):
     return book_urls
 
 
-def fetch_fantastic_books(num_pages=10):
+def parse_args_from_terminal():
+    parser = argparse.ArgumentParser(
+    description='Задайте диапазон страниц для скачивания книг:'
+                )
+    parser.add_argument('-s', '--start_page', help="Начальная страница", type=int)
+    parser.add_argument('-e', '--end_page', help="Конечная страница", type=int)
+    args = parser.parse_args()
+    start_page = args.start_page
+    end_page = args.end_page
+    return start_page, end_page
+
+
+def fetch_fantastic_books(start_page=1, end_page=None):
     url_template = 'https://tululu.org/l55/{}'
     book_filename_template ='{}.txt'
-    books_folder='books/'
-    images_folder='images/'
-    image_filename_template='{}.jpg'
+    books_folder = 'books/'
+    images_folder = 'images/'
+    image_filename_template = '{}.jpg'
     book_urls = []
-    for num_page in range(1, num_pages + 1):
+    for num_page in count(start_page):
+        if num_page == end_page:
+            return
         try:
             url = url_template.format(num_page)
             response = requests.get(url, allow_redirects=False)
@@ -94,7 +112,9 @@ def fetch_fantastic_books(num_pages=10):
             
 
 def main():
-    fetch_fantastic_books(4)
+    start_page, end_page = parse_args_from_terminal()
+    fetch_fantastic_books(start_page=start_page,
+                          end_page=end_page)
 
 
 if __name__ == '__main__':
