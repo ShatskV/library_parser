@@ -1,15 +1,16 @@
 import argparse
 import json
-import time
-from urllib.parse import urljoin
-from itertools import count
 import os
+import time
+from itertools import count
+from urllib.parse import urljoin
+
 import requests
 from bs4 import BeautifulSoup
-from pathlib import Path
 
 from books_logger import logger
-from tululu import download_image, download_txt, parse_book_page
+from tululu import (check_for_redirect, check_response, download_image,
+                    download_txt, parse_book_page)
 
 
 def get_book_urls_from_page(main_page_url, page_html):
@@ -35,20 +36,8 @@ def parse_args_from_terminal():
 
     args = parser.parse_args()
 
-    dest_folder = args.dest_folder
-    skip_imgs = args.skip_imgs
-    skip_txt = args.skip_txt
-    json_path = args.json_path
-    start_page = args.start_page
-    end_page = args.end_page
-
-    return {'start_page': start_page,
-            'end_page': end_page,
-            'dest_folder': dest_folder,
-            'skip_imgs': skip_imgs,
-            'skip_txt': skip_txt,
-            'json_path': json_path,
-            }
+    return vars(args)
+    
 
 def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path='books.json',
                           skip_imgs=False, skip_txt=False):
@@ -66,8 +55,7 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
             break
         try:
             url = url_template.format(num_page)
-            response = requests.get(url, allow_redirects=False)
-            response.raise_for_status()
+            check_response(response)
         except requests.ConnectionError as e:
             logger.error(f'url: {url} Connection error: {e}')
             time.sleep(5)
@@ -75,9 +63,13 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
         except requests.HTTPError as e:
             logger.error(f'url: {url} HTTP error: {e}')
             continue
-        if response.status_code == 302:
-                logger.error('code: 404, No more pages found')
-                return
+        
+        try:
+            check_for_redirect(response)
+        except requests.HTTPError as e:
+            logger.error('code: 404, No more pages found')
+            break
+
         page_book_urls = get_book_urls_from_page(url, response.text)
         book_urls += page_book_urls
 
@@ -86,6 +78,7 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
         try:
             response = requests.get(book_url, allow_redirects=False)
             response.raise_for_status()
+            check_for_redirect(response)
         except requests.ConnectionError as e:
             logger.error(f'url: {url} Connection error: {e}')
             time.sleep(5)
@@ -103,8 +96,8 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
         _, book_id = book_url.split('/b')
         book_id = book_id.strip('/')
 
-        book_link = urljoin(url, book_parsed['book_route'])
-        image_link = urljoin(url, book_parsed['image_route'])
+        book_link = urljoin(book_url, book_parsed['book_route'])
+        image_link = urljoin(book_url, book_parsed['image_route'])
 
         book_filename = book_filename_template.format(book_parsed['name'])
         image_filename = image_filename_template.format(book_id)
@@ -132,7 +125,7 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
         json_path = os.path.join(dest_folder, json_path)
     with open(json_path, 'w', encoding='utf-8') as file:
         json.dump(books, file, indent=4, ensure_ascii=False)
-            
+
 
 def main():
     terminal_args = parse_args_from_terminal()
