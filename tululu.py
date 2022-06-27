@@ -10,11 +10,14 @@ from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
 from books_logger import logger
 
+def check_response(response):
+    response.raise_for_status()
+    check_for_redirect(response)
+
 
 def download_txt(url, filename, folder='books'):
     response = requests.get(url)
-    response.raise_for_status()
-    
+    check_response(response)
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
     filepath = os.path.join(folder, filename)
@@ -27,7 +30,7 @@ def download_txt(url, filename, folder='books'):
 def download_image(url, filename, folder='images'):
     response = requests.get(url)
     response.raise_for_status()
-    
+    check_for_redirect(response)
     Path(folder).mkdir(parents=True, exist_ok=True)
     filename = sanitize_filename(filename)
     filepath = os.path.join(folder, filename)
@@ -56,18 +59,24 @@ def parse_args_from_terminal():
 
 def parse_book_page(book_html):
     page_soup = BeautifulSoup(book_html, 'lxml')
-    name_and_author = page_soup.find('div', id='content').find('h1').text
+    selector = '#content h1'
+    name_and_author = page_soup.select(selector)[0].text
 
-    book_href = page_soup.find('a', {'href': re.compile('/txt.php*')})
-    image_route = page_soup.find('div', class_='bookimage').find('img').get('src')
+    selector = "a[href^='/txt.php']"
+    book_href = page_soup.select(selector)
+    
+    selector = ".bookimage img[src]"
+    image_route = page_soup.select(selector)[0].get('src')
 
-    genres_hrefs = page_soup.find('span', class_='d_book').find_all('a', href=True)
+    selector = "span.d_book a[href]"
+    genres_hrefs = page_soup.select(selector)
     genres = [genre_href.text for genre_href in genres_hrefs]
 
-    comments_class_texts = page_soup.find_all('div', 'texts')
-    comments = [comment.find('span', class_ ='black').text for comment in comments_class_texts]
-    
-    book_route = book_href.get('href') if book_href else None
+    selector = ".texts .black"
+    comment_classes = page_soup.select(selector)
+    comments = [comment_class.text for comment_class in comment_classes]
+
+    book_route = book_href[0].get('href') if book_href else None
     
     name, author = name_and_author.split('::')
     author = author.strip()
@@ -93,8 +102,7 @@ def fetch_books(book_start_id=1, book_end_id=10):
        
         try:
             response = requests.get(url, allow_redirects=False)
-            response.raise_for_status()
-            check_for_redirect(response)
+            check_response(response)
         except requests.ConnectionError as e:
             logger.error(f'url: {url} Connection error: {e}')
             time.sleep(5)
