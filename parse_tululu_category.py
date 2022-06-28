@@ -18,9 +18,7 @@ def get_book_urls_from_page(main_page_url, page_html):
     selector = ".bookimage a"
     book_urls = []
     book_blocks = page_soup.select(selector)
-    for block in book_blocks:
-        book_url = urljoin(main_page_url, block.get('href'))
-        book_urls.append(book_url)
+    book_urls = [urljoin(main_page_url, block.get('href')) for block in book_blocks]
     return book_urls
 
 
@@ -55,7 +53,8 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
             break
         try:
             url = url_template.format(num_page)
-            check_response(response)
+            response = requests.get(url, allow_redirects=False)
+            response.raise_for_status()
         except requests.ConnectionError as e:
             logger.error(f'url: {url} Connection error: {e}')
             time.sleep(5)
@@ -77,8 +76,7 @@ def fetch_fantastic_books(start_page=1, end_page=None, dest_folder='', json_path
     for book_url in book_urls:
         try:
             response = requests.get(book_url, allow_redirects=False)
-            response.raise_for_status()
-            check_for_redirect(response)
+            check_response(response)
         except requests.ConnectionError as e:
             logger.error(f'url: {url} Connection error: {e}')
             time.sleep(5)

@@ -7,7 +7,9 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
+
 from books_logger import logger
+
 
 def check_response(response):
     response.raise_for_status()
@@ -62,10 +64,10 @@ def parse_book_page(book_html):
     name_and_author = page_soup.select(selector)[0].text
 
     selector = "a[href^='/txt.php']"
-    book_href = page_soup.select(selector)
+    book_href = page_soup.select_one(selector)
     
     selector = ".bookimage img[src]"
-    image_route = page_soup.select(selector)[0].get('src')
+    image_route = page_soup.select_one(selector).get('src')
 
     selector = "span.d_book a[href]"
     genres_hrefs = page_soup.select(selector)
@@ -75,7 +77,7 @@ def parse_book_page(book_html):
     comment_classes = page_soup.select(selector)
     comments = [comment_class.text for comment_class in comment_classes]
 
-    book_route = book_href[0].get('href') if book_href else None
+    book_route = book_href.get('href') if book_href else None
     
     name, author = name_and_author.split('::')
     author = author.strip()
