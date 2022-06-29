@@ -61,7 +61,7 @@ def parse_args_from_terminal():
 def parse_book_page(book_html):
     page_soup = BeautifulSoup(book_html, 'lxml')
     selector = '#content h1'
-    name_and_author = page_soup.select(selector)[0].text
+    name_and_author = page_soup.select_one(selector).text
 
     selector = "a[href^='/txt.php']"
     book_href = page_soup.select_one(selector)
