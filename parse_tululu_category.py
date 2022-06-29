@@ -16,7 +16,6 @@ from tululu import (check_for_redirect, check_response, download_image,
 def get_book_urls_from_page(main_page_url, page_html):
     page_soup = BeautifulSoup(page_html, 'lxml')
     selector = ".bookimage a"
-    book_urls = []
     book_blocks = page_soup.select(selector)
     book_urls = [urljoin(main_page_url, block.get('href')) for block in book_blocks]
     return book_urls
