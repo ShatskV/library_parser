@@ -1,7 +1,8 @@
 import json
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from livereload import Server
+
 
 env = Environment(
     loader=FileSystemLoader('.'),
@@ -13,10 +14,18 @@ template = env.get_template('template.html')
 with open('books.json', 'r') as file:
     books = json.load(file)
 
-rendered_page = template.render(books=books)
 
-with open('index.html', 'w', encoding="utf8") as file:
-    file.write(rendered_page)
+def on_reload():
+    rendered_page = template.render(books=books)
+    with open('index.html', 'w', encoding="utf8") as file:
+        file.write(rendered_page)
+    print("Site rebuild")
 
-server = HTTPServer(('0.0.0.0', 8000), SimpleHTTPRequestHandler)
-server.serve_forever()
+
+on_reload()
+
+server = Server()
+
+server.watch('template.html', on_reload)
+
+server.serve(root='.')
