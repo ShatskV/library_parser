@@ -134,4 +134,4 @@ images/
 bs4_tutorial.py
 books.json
 index.html
-pages/
+.DS_Store
