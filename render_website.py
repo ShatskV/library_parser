@@ -15,10 +15,12 @@ def render_pages(template, books, folder='pages', num_books_per_page=10):
     os.makedirs(folder, exist_ok=True)
     books_per_pages = list(chunked(books, num_books_per_page))
     filename_template = 'index{}.html'
-    for num, books_per_page in enumerate(books_per_pages):
+    for num, books_per_page in enumerate(books_per_pages, start=1):
         books_chunked = list(chunked(books_per_page, 2))
         filepath = os.path.join(folder, filename_template.format(num))
-        rendered_page = template.render(books=books_chunked)
+        rendered_page = template.render(books=books_chunked, 
+                                        num_pages=len(books_per_pages),
+                                        current_page=num)
         with open(filepath, 'w', encoding="utf8") as file:
             file.write(rendered_page)
 
