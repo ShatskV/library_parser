@@ -13,7 +13,7 @@ BOOKS_PER_PAGE = 10
 def parse_args_from_terminal():
     parser = argparse.ArgumentParser(
                     description='Задайте количество книг на странице:')
-    parser.add_argument('-b', '--books', help="Начальная страница", type=int, default=10)
+    parser.add_argument('-b', '--books', help="Количество книг на страницу default - 10", type=int, default=10)
     args = parser.parse_args()
     return args.books
 
