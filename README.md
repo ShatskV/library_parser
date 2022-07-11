@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Скачивание книг с сайта [tululu.org](https://tululu.org/) и их автоверстка
+=======
+# Скачивание и книг с сайта [tululu.org](https://tululu.org/) и их автоверстка
+>>>>>>> main
 
 Программа умеет: 
 - Скачивать книги заданного диапазона страниц из раздела "Фантастика" с сайта путем парсинга страниц
@@ -75,7 +79,11 @@
       -b BOOKS, --books BOOKS
                             Количество книг на страницу default - 10 
 ```
+<<<<<<< HEAD
 - Адрес сайта - [books library](https://shatskv.github.io/library_parser/pages/index1.html) 
+=======
+- Адрес сайта - [books library](https://shatskv.github.io/library_parser/pages/index4.html) 
+>>>>>>> main
 
 ### Цель проекта
 
